@@ -99,6 +99,41 @@ Repository -> Settings -> Branches -> Add branch protection rule
 10. `Restrict commit metadata` 和 `Restrict branch names` 位于当前 branch ruleset UI 的 `Restrictions` 区块，不属于传统分支保护项；如果只是先把主分支保护起来，可以暂时不启用。
 11. `Restrict file paths`、`Restrict file path length`、`Restrict file extensions`、`Restrict file size` 属于 `Push ruleset`，不是 `Branch ruleset`；如果你当前创建的是 branch ruleset，在页面里不会看到这些选项。
 
+### 2.5 可直接导入的默认 Ruleset JSON
+
+仓库中已提供一个可直接导入 GitHub Rulesets 的默认配置文件：
+
+- `.github/rulesets/default-protect-default-branch.json`
+
+导入方式：
+
+```text
+Repository -> Settings -> Rules -> Rulesets -> New ruleset -> Import a ruleset
+```
+
+这个默认 JSON 适合作为通用起点，包含以下规则：
+
+- 保护默认分支 `~DEFAULT_BRANCH`
+- 禁止删除分支
+- 禁止 force push
+- 要求通过 PR 合并
+- 至少 1 个审批
+- 新提交后自动使旧审批失效
+- 要求最后一次可审查推送也获得审批
+- 要求所有对话都已解决
+- 要求线性历史
+
+这个默认 JSON 故意没有包含以下配置，因为它们通常依赖具体仓库环境，不适合做“通用可导入模板”：
+
+- `Bypass list`
+- `Status checks`
+- `Require deployments to succeed before merging`
+- `Require code scanning results`
+- `Require code quality results`
+- `Require review from Code Owners`
+
+如果仓库后续接入了 GitHub Actions、CODEOWNERS、Code Scanning 或部署环境，可以在导入后再按需补充这些规则。
+
 ## 3. 推荐开发流程
 
 ### 3.1 从 `main` 拉出功能分支
