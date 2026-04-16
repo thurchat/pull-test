@@ -67,7 +67,7 @@ Repository -> Settings -> Branches -> Add branch protection rule
 | Branch protections | Restrict creations | 通常关闭 | 对已有 `main` 分支通常没必要，更多用于 `release/*` 之类模式分支 |
 | Branch protections | Restrict updates | 通常关闭 | 标准 PR 流程一般不需要额外开启；仅在你要做“允许名单推送”时再启用 |
 | Branch protections | Restrict deletions | 开启 | 防止误删主分支 |
-| Branch protections | Require linear history | 推荐开启 | 保持提交历史清晰 |
+| Branch protections | Require linear history | 默认关闭 | 如果希望保留 merge commit 和分支拓扑，就不要开启 |
 | Branch protections | Require deployments to succeed before merging | 可选 | 有预发/测试环境时可开启 |
 | Branch protections | Require signed commits | 可选 | 对提交签名有要求时开启 |
 | Branch protections | Require a pull request before merging | 开启 | 所有改动必须通过 PR 合入 |
@@ -76,7 +76,7 @@ Repository -> Settings -> Branches -> Add branch protection rule
 | Branch protections -> Require a pull request before merging -> Additional settings | Require approval of the most recent reviewable push | 开启 | 保证最后一版代码也经过审查 |
 | Branch protections -> Require a pull request before merging -> Additional settings | Require conversation resolution before merging | 开启 | 所有评论处理完成后才能合并 |
 | Branch protections -> Require a pull request before merging -> Additional settings | Require review from Code Owners | 可选 | 如果仓库启用了 `CODEOWNERS`，建议开启 |
-| Branch protections -> Require a pull request before merging -> Additional settings | Require merge type | 可选 | 想固定合并方式时可指定 `Squash` 或 `Rebase` |
+| Branch protections -> Require a pull request before merging -> Additional settings | Require merge type | 可选 | 如果希望保留 merge commit，不要强制只允许 `Squash` 或 `Rebase` |
 | Branch protections -> Require a pull request before merging -> Required reviewers | 团队仓库按需开启 | 需要特定团队审批时使用；个人仓库通常不会看到 |
 | Branch protections | Require status checks to pass before merging | 有 CI 时开启 | 保证自动检查通过 |
 | Branch protections -> Require status checks to pass before merging -> Additional settings | Status checks | 选择实际在跑的 CI 检查项 | 例如 `build`、`test`、`lint` |
@@ -93,11 +93,27 @@ Repository -> Settings -> Branches -> Add branch protection rule
 4. 如果仓库暂时没有 GitHub Actions 或其他 CI，不要立即开启 `Require status checks to pass before merging`，否则 PR 会被一直阻塞。
 5. `Restrict who can push` 是旧版 `Branch protection rule` 的说法；在当前 `Rulesets` UI 中，对应思路通常是 `Restrict updates` 加 `Bypass list` 的组合。
 6. `Do not allow bypassing the above settings` 也是旧版保护规则的说法；在当前 `Rulesets` UI 中没有这个同名开关。如果希望几乎没人能绕过规则，直接将 `Bypass list` 留空即可。
-7. 如果开启 `Require linear history`，仓库层面的合并方式也要允许 `Squash merge` 或 `Rebase merge`，否则 PR 可能无法合并。
+7. 如果不启用 `Require linear history`，仓库就可以保留 `Create a merge commit`，适合希望保留完整合并上下文的团队。
 8. 如果团队对代码归属明确，建议同时配置 `CODEOWNERS`，再启用 `Require review from Code Owners`。
 9. `Require code quality results` 是较新的规则项，只有在仓库实际启用了 GitHub Code Quality 时才建议开启。
 10. `Restrict commit metadata` 和 `Restrict branch names` 位于当前 branch ruleset UI 的 `Restrictions` 区块，不属于传统分支保护项；如果只是先把主分支保护起来，可以暂时不启用。
 11. `Restrict file paths`、`Restrict file path length`、`Restrict file extensions`、`Restrict file size` 属于 `Push ruleset`，不是 `Branch ruleset`；如果你当前创建的是 branch ruleset，在页面里不会看到这些选项。
+
+### 2.4.1 不要求线性历史的优缺点
+
+如果团队决定不启用 `Require linear history`，通常意味着允许 `Create a merge commit`。
+
+优点：
+
+- 能完整保留 PR 的合并边界和分支拓扑
+- 适合并行开发较多、希望保留上下文的团队
+- 回看某次合并时，更容易看出“这批提交是在哪个 PR 一起进入主分支的”
+
+缺点：
+
+- `main` 的提交图会更复杂
+- 日常查看提交历史时，可读性通常不如线性历史
+- 回滚和梳理变更时，往往需要同时理解 merge commit 与分支上的多个提交
 
 ### 2.5 可直接导入的默认 Ruleset JSON
 
@@ -121,7 +137,7 @@ Repository -> Settings -> Rules -> Rulesets -> New ruleset -> Import a ruleset
 - 新提交后自动使旧审批失效
 - 要求最后一次可审查推送也获得审批
 - 要求所有对话都已解决
-- 要求线性历史
+- 保留 merge commit，不要求线性历史
 
 这个默认 JSON 故意没有包含以下配置，因为它们通常依赖具体仓库环境，不适合做“通用可导入模板”：
 
@@ -240,13 +256,15 @@ fix: 修复首页样式错位问题
 
 ### 6.1 推荐合并方式
 
-建议优先使用 `Squash and merge`，优点是：
+如果仓库不要求线性历史，建议默认允许 `Create a merge commit`。
 
-- 保持 `main` 历史简洁
-- 一个 PR 最终对应一个合并提交
-- 便于回溯功能变更
+它更适合当前这套规则的原因是：
 
-如果团队对提交粒度要求更高，也可以选择 `Rebase and merge`。
+- 可以保留 PR 的合并边界
+- 可以完整保留功能分支上的提交历史
+- 对排查“某批提交是通过哪个 PR 合入的”更直观
+
+如果某个 PR 内部提交过碎、没有保留价值，也可以按需使用 `Squash and merge`。只有在团队明确希望保持线性提交历史时，再优先选择 `Rebase and merge`。
 
 ## 7. 合并后处理
 
